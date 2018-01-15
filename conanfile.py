@@ -48,10 +48,10 @@ class ClangConan(ConanFile):
     name = "clang"
     version = os.environ.get("CONAN_VERSION_OVERRIDE", VERSION)
     generators = "cmake"
-    requires = ("llvm/3.8.0@smspillaz/stable",
-                "libcxx/3.8.0@smspillaz/stable",
-                "compiler-rt/3.8.0@smspillaz/stable")
-    url = "http://github.com/smspillaz/clang-conan"
+    requires = ("llvm/3.8.0@Manu343726/testing",
+                "libcxx/3.8.0@Manu343726/testing",
+                "compiler-rt/3.8.0@Manu343726/testing")
+    url = "http://github.com/Manu343726/clang-conan"
     license = "BSD"
     settings = "os", "compiler", "build_type", "arch"
     options = {"shared": [True, False]}
@@ -70,7 +70,7 @@ class ClangConan(ConanFile):
                                         "clang/tools/extra")
 
     def build(self):
-        cmake = CMake(self.settings)
+        cmake = CMake(self)
 
         for component in ["clang"]:
             build = os.path.join(BUILD_DIR, component)
@@ -80,16 +80,16 @@ class ClangConan(ConanFile):
             except OSError:
                 pass
 
-            if not os.path.exists(os.path.join(self.conanfile_directory,
+            if not os.path.exists(os.path.join(self.build_folder,
                                                component,
                                                "CMakeListsOriginal.txt")):
-                shutil.move(os.path.join(self.conanfile_directory,
+                shutil.move(os.path.join(self.build_folder,
                                          component,
                                          "CMakeLists.txt"),
-                            os.path.join(self.conanfile_directory,
+                            os.path.join(self.build_folder,
                                          component,
                                          "CMakeListsOriginal"))
-                with open(os.path.join(self.conanfile_directory,
+                with open(os.path.join(self.build_folder,
                                        component,
                                        "CMakeLists.txt"), "w") as cmakelists_file:
                     cmakelists_file.write("cmake_minimum_required(VERSION 2.8)\n"
@@ -104,61 +104,37 @@ class ClangConan(ConanFile):
                                           "message (STATUS \"${CMAKE_PROGRAM_PATH}\")\n"
                                           "include(CMakeListsOriginal)\n")
 
-            try:
-                shutil.rmtree(build)
-            except OSError:
-                pass
-
-            try:
-                os.makedirs("exports")
-            except OSError:
-                pass
-
-            shutil.copytree("lib", "exports/lib")
-            shutil.copytree("include", "exports/include")
-
-            with in_dir(build):
-                self.run("cmake \"%s\" %s"
-                         " -DCLANG_INCLUDE_DOCS=OFF"
-                         " -DCLANG_INCLUDE_TESTS=OFF"
-                         " -DCLANG_TOOLS_INCLUDE_EXTRA_DOCS=OFF"
-                         " -DCOMPILER_RT_INCLUDE_TESTS=OFF"
-                         " -DLIBCXX_INCLUDE_TESTS=OFF"
-                         " -DLIBCXX_INCLUDE_DOCS=OFF"
-                         " -DLLVM_INCLUDE_TESTS=OFF"
-                         " -DLLVM_INCLUDE_EXAMPLES=OFF"
-                         " -DLLVM_INCLUDE_GO_TESTS=OFF"
-                         " -DLLVM_BUILD_TESTS=OFF"
-                         " -DLIBCXXABI_LIBCXX_INCLUDES=\"%s/libcxx/include\""
-                         " -DCMAKE_VERBOSE_MAKEFILE=1"
-                         " -DLLVM_TARGETS_TO_BUILD=X86"
-                         " -DCMAKE_INSTALL_PREFIX=\"%s\""
-                         " -DBUILD_SHARED_LIBS=%s"
-                         " -DCLANG_ENABLE_ARCMT=OFF"
-                         " -DCLANG_TOOL_ARCMT_TEST_BUILD=OFF"
-                         " -DCLANG_TOOL_CLANG_CHECK_BUILD=OFF"
-                         " -DCLANG_TOOL_CLANG_FORMAT_BUILD=OFF"
-                         " -DCLANG_TOOL_CLANG_FUZZER_BUILD=OFF"
-                         " -DCLANG_TOOL_DIAGTOOL_BUILD=OFF"
-                         " -DCLANG_TOOL_DRIVER_BUILD=OFF"
-                         " -DCLANG_TOOL_DIAGTOOL_BUILD=OFF"
-                         " -DCLANG_TOOL_CLANG_FUZZER_BUILD=OFF"
-                         "" % (os.path.join(self.conanfile_directory,
-                                            component),
-                               cmake.command_line,
-                               os.path.abspath(os.path.join(build, "..")),
-                               os.path.join(self.conanfile_directory,
-                                            install),
-                               ("ON" if self.options.shared else "OFF")))
-                self.run("cmake --build . {cfg} -- {j}"
-                         "".format(cfg=cmake.build_config,
-                                   j=("-j4" if platform.system() != "Windows"
-                                      else "")))
-                self.run("cmake --build . -- install")
+            cmake.configure(defs={
+             "CLANG_INCLUDE_DOCS": False,
+             "CLANG_INCLUDE_TESTS": False,
+             "CLANG_TOOLS_INCLUDE_EXTRA_DOCS": False,
+             "COMPILER_RT_INCLUDE_TESTS": False,
+             "LIBCXX_INCLUDE_TESTS": False,
+             "LIBCXX_INCLUDE_DOCS": False,
+             "LLVM_INCLUDE_TESTS": False,
+             "LLVM_INCLUDE_EXAMPLES": False,
+             "LLVM_INCLUDE_GO_TESTS": False,
+             "LLVM_BUILD_TESTS": False,
+             "CMAKE_VERBOSE_MAKEFILE": True,
+             "LLVM_TARGETS_TO_BUILD": "X86",
+             "CMAKE_INSTALL_PREFIX": os.path.join(self.build_folder, INSTALL_DIR),
+             "BUILD_SHARED_LIBS": self.options.shared,
+             "CLANG_ENABLE_ARCMT": False,
+             "CLANG_TOOL_ARCMT_TEST_BUILD": False,
+             "CLANG_TOOL_CLANG_CHECK_BUILD": False,
+             "CLANG_TOOL_CLANG_FORMAT_BUILD": False,
+             "CLANG_TOOL_CLANG_FUZZER_BUILD": False,
+             "CLANG_TOOL_DIAGTOOL_BUILD": False,
+             "CLANG_TOOL_DRIVER_BUILD": False,
+             "CLANG_TOOL_DIAGTOOL_BUILD": False,
+             "CLANG_TOOL_CLANG_FUZZER_BUILD": False
+            }, source_dir="clang")
+            cmake.build()
+            cmake.install()
 
     def package(self):
         for component in ["clang"]:
-            install = os.path.join(INSTALL_DIR, component)
+            install = os.path.join(self.build_folder, INSTALL)
             self.copy(pattern="*",
                       dst="include",
                       src=os.path.join(install, "include"),
