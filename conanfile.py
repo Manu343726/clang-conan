@@ -134,7 +134,7 @@ class ClangConan(ConanFile):
 
     def package(self):
         for component in ["clang"]:
-            install = os.path.join(self.build_folder, INSTALL)
+            install = os.path.join(self.build_folder, INSTALL_DIR)
             self.copy(pattern="*",
                       dst="include",
                       src=os.path.join(install, "include"),
