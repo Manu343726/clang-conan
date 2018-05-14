@@ -57,11 +57,17 @@ class ClangConan(ConanFile):
     options = {"shared": [True, False]}
     default_options = "shared=True"
 
-    def config(self):
-        try:  # Try catch can be removed when conan 0.8 is released
-            del self.settings.compiler.libcxx
-        except:
-            pass
+    def configure(self):
+        del self.settings.compiler.libcxx
+
+        if "shared" in self.options:
+            self.options["llvm"].shared = self.options.shared
+            self.options["compiler-rt"].shared = self.options.shared
+            self.options["libcxx"].shared = self.options.shared
+
+    def config_options(self):
+        if self.settings.os == "Windows":
+            del self.options.shared
 
     def source(self):
         download_extract_llvm_component("cfe", ClangConan.version,
@@ -118,7 +124,7 @@ class ClangConan(ConanFile):
              "CMAKE_VERBOSE_MAKEFILE": True,
              "LLVM_TARGETS_TO_BUILD": "X86",
              "CMAKE_INSTALL_PREFIX": os.path.join(self.build_folder, INSTALL_DIR),
-             "BUILD_SHARED_LIBS": self.options.shared,
+             "BUILD_SHARED_LIBS": self.options.shared if "shared" in self.options else False
              "CLANG_ENABLE_ARCMT": False,
              "CLANG_TOOL_ARCMT_TEST_BUILD": False,
              "CLANG_TOOL_CLANG_CHECK_BUILD": False,
