@@ -3,6 +3,7 @@
 CXChildVisitResult TranslationUnitVisitor(CXCursor cursor, CXCursor parent, CXClientData client_data)
 {
     // does nothing
+    return CXChildVisit_Continue;
 }
 
 int main()

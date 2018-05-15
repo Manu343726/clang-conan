@@ -49,12 +49,11 @@ class ClangConan(ConanFile):
     version = os.environ.get("CONAN_VERSION_OVERRIDE", VERSION)
     generators = "cmake"
     requires = ("llvm/3.8.0@Manu343726/testing",
-                "libcxx/3.8.0@Manu343726/testing",
                 "compiler-rt/3.8.0@Manu343726/testing")
     url = "http://github.com/Manu343726/clang-conan"
     license = "BSD"
     settings = "os", "compiler", "build_type", "arch"
-    options = {"shared": [True, False]}
+    options = {"shared": [True, False], "extra_tools": [True, False]}
     default_options = "shared=True"
 
     def configure(self):
@@ -65,18 +64,28 @@ class ClangConan(ConanFile):
             self.options["compiler-rt"].shared = self.options.shared
             self.options["libcxx"].shared = self.options.shared
 
+    def requirements(self):
+        if self.settings.compiler != "Visual Studio":
+            self.requires("libcxx/3.8.0@Manu343726/testing")
+
     def config_options(self):
         if self.settings.os == "Windows":
             del self.options.shared
+            self.options.extra_tools = False
 
     def source(self):
         download_extract_llvm_component("cfe", ClangConan.version,
                                         "clang")
-        download_extract_llvm_component("clang-tools-extra", ClangConan.version,
-                                        "clang/tools/extra")
+
+        if self.options.extra_tools:
+            download_extract_llvm_component("clang-tools-extra", ClangConan.version,
+                                            "clang/tools/extra")
 
     def build(self):
-        cmake = CMake(self)
+        if self.settings.arch == "x86_64" and self.settings.compiler == "Visual Studio":
+            cmake = CMake(self, toolset="host=x64")
+        else:
+            cmake = CMake(self)
 
         for component in ["clang"]:
             build = os.path.join(BUILD_DIR, component)
@@ -124,7 +133,7 @@ class ClangConan(ConanFile):
              "CMAKE_VERBOSE_MAKEFILE": True,
              "LLVM_TARGETS_TO_BUILD": "X86",
              "CMAKE_INSTALL_PREFIX": os.path.join(self.build_folder, INSTALL_DIR),
-             "BUILD_SHARED_LIBS": self.options.shared if "shared" in self.options else False
+             "BUILD_SHARED_LIBS": self.options.shared if "shared" in self.options else False,
              "CLANG_ENABLE_ARCMT": False,
              "CLANG_TOOL_ARCMT_TEST_BUILD": False,
              "CLANG_TOOL_CLANG_CHECK_BUILD": False,
